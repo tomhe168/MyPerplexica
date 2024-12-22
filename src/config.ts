@@ -9,6 +9,8 @@ interface Config {
     PORT: number;
     SIMILARITY_MEASURE: string;
     KEEP_ALIVE: string;
+    REDIS_URL?: string;
+    REDIS_TTL?: number;
   };
   API_KEYS: {
     OPENAI: string;
@@ -50,6 +52,11 @@ export const getSearxngApiEndpoint = () =>
   process.env.SEARXNG_API_URL || loadConfig().API_ENDPOINTS.SEARXNG;
 
 export const getOllamaApiEndpoint = () => loadConfig().API_ENDPOINTS.OLLAMA;
+
+export const getRedisConfig = () => ({
+  url:'redis://192.168.1.9:6379',
+  ttl: 300
+});
 
 export const updateConfig = (config: RecursivePartial<Config>) => {
   const currentConfig = loadConfig();

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getSearxngApiEndpoint } from '../config';
+import { redisCache } from './cache';
 
 interface SearxngSearchOptions {
   categories?: string[];
@@ -8,23 +9,17 @@ interface SearxngSearchOptions {
   pageno?: number;
 }
 
-interface SearxngSearchResult {
-  title: string;
-  url: string;
-  img_src?: string;
-  thumbnail_src?: string;
-  thumbnail?: string;
-  content?: string;
-  author?: string;
-  iframe_src?: string;
-}
-
 export const searchSearxng = async (
   query: string,
   opts?: SearxngSearchOptions,
 ) => {
-  const searxngURL = getSearxngApiEndpoint();
+  // 尝试从缓存获取
+  const cached = await redisCache.get(query, opts);
+  if (cached) {
+    return cached;
+  }
 
+  const searxngURL = getSearxngApiEndpoint();
   const url = new URL(`${searxngURL}/search?format=json`);
   url.searchParams.append('q', query);
 
@@ -39,9 +34,13 @@ export const searchSearxng = async (
   }
 
   const res = await axios.get(url.toString());
+  const results = {
+    results: res.data.results,
+    suggestions: res.data.suggestions
+  };
 
-  const results: SearxngSearchResult[] = res.data.results;
-  const suggestions: string[] = res.data.suggestions;
+  // 存入缓存
+  await redisCache.set(query, results, opts);
 
-  return { results, suggestions };
+  return results;
 };

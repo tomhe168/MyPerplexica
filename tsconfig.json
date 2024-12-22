@@ -11,7 +11,10 @@
     "emitDecoratorMetadata": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "skipDefaultLibCheck": true
+    "skipDefaultLibCheck": true,
+    "types": [
+      "node"
+    ]
   },
   "include": ["src"],
   "exclude": ["node_modules", "**/*.spec.ts"]

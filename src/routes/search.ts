@@ -1,5 +1,6 @@
 import express from 'express';
 import logger from '../utils/logger';
+import { redisCache } from '../lib/cache/redis';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { Embeddings } from '@langchain/core/embeddings';
 import { ChatOpenAI } from '@langchain/openai';
@@ -12,6 +13,7 @@ import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { MetaSearchAgentType } from '../search/metaSearchAgent';
 
 const router = express.Router();
+const CACHE_TTL = 300; // 5分钟缓存
 
 interface chatModel {
   provider: string;
@@ -35,12 +37,51 @@ interface ChatRequestBody {
 }
 
 router.post('/', async (req, res) => {
+  logger.debug('Received request to /api/search');
   try {
+    // 在路由开始时添加日志
+    logger.info({
+      message: 'Received search request',
+      body: req.body
+    });
+
     const body: ChatRequestBody = req.body;
 
     if (!body.focusMode || !body.query) {
+      logger.warn({
+        message: 'Invalid request - missing focus mode or query',
+        body: req.body
+      });
       return res.status(400).json({ message: 'Missing focus mode or query' });
     }
+
+    // 生成缓存选项对象
+    const cacheOptions = {
+      focusMode: body.focusMode,
+      optimizationMode: body.optimizationMode
+    };
+
+    // 使用 RedisCache 类检查缓存
+    const cachedResults = await redisCache.get(body.query, cacheOptions);
+    if (cachedResults) {
+      logger.info({
+        message: 'Cache hit',
+        query: body.query,
+        focusMode: body.focusMode,
+        optimizationMode: body.optimizationMode,
+        source: 'redis'
+      });
+      return res.json(cachedResults);
+    }
+
+    logger.info({
+      message: 'Cache miss, fetching from search logic',
+      query: body.query,
+      focusMode: body.focusMode,
+      optimizationMode: body.optimizationMode,
+      source: 'search_logic',
+      cacheKey: `search:${body.focusMode}:${body.optimizationMode}:${body.query}`
+    });
 
     body.history = body.history || [];
     body.optimizationMode = body.optimizationMode || 'balanced';
@@ -143,8 +184,20 @@ router.post('/', async (req, res) => {
       }
     });
 
-    emitter.on('end', () => {
-      res.status(200).json({ message, sources });
+    emitter.on('end', async () => {
+      const result = { message, sources };
+      
+      // 使用 RedisCache 类存储结果
+      await redisCache.set(body.query, result, cacheOptions);
+      
+      logger.info({
+        message: 'Search completed and cached',
+        query: body.query,
+        focusMode: body.focusMode,
+        optimizationMode: body.optimizationMode
+      });
+      
+      res.status(200).json(result);
     });
 
     emitter.on('error', (data) => {
@@ -152,7 +205,15 @@ router.post('/', async (req, res) => {
       res.status(500).json({ message: parsedData.data });
     });
   } catch (err: any) {
-    logger.error(`Error in getting search results: ${err.message}`);
+    const body = req.body as ChatRequestBody;
+    logger.error({
+      message: 'Error in search',
+      error: err.message,
+      query: body?.query,
+      focusMode: body?.focusMode,
+      optimizationMode: body?.optimizationMode,
+      stack: err.stack
+    });
     res.status(500).json({ message: 'An error has occurred.' });
   }
 });
