@@ -38,6 +38,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       active: segments.includes('library'),
       label: 'Library',
     },
+    {
+      icon: Settings,
+      href: '/settings/focus-modes',
+      active: segments.includes('settings/focus-modes'),
+      label: 'Settings',
+    },
   ];
 
   return (

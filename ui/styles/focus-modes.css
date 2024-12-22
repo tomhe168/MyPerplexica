@@ -1,0 +1,8 @@
+/* 如果需要自定义样式可以在这里添加 */
+.focus-mode-table .ant-table-cell {
+  vertical-align: middle;
+}
+
+.focus-mode-form .ant-form-item-label {
+  font-weight: 500;
+} 

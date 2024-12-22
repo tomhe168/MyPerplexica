@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 export const messages = sqliteTable('messages', {
   id: integer('id').primaryKey(),
@@ -25,4 +25,13 @@ export const chats = sqliteTable('chats', {
   files: text('files', { mode: 'json' })
     .$type<File[]>()
     .default(sql`'[]'`),
+});
+
+export const focusModes = sqliteTable('focus_modes', {
+  id: text('id').primaryKey().notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  apiEndpoint: text('api_endpoint').notNull(),
+  createdAt: integer('created_at').default(Date.now()).notNull(), // 去掉箭头函数
+  updatedAt: integer('updated_at').default(Date.now()).notNull(), // 去掉箭头函数
 });

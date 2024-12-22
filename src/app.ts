@@ -5,6 +5,7 @@ import http from 'http';
 import routes from './routes';
 import { getPort } from './config';
 import logger from './utils/logger';
+import focusModesRouter from './routes/focus-modes';
 
 const port = getPort();
 
@@ -22,6 +23,8 @@ app.use('/api', routes);
 app.get('/api', (_, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+app.use('/api/focus-modes', focusModesRouter);
 
 server.listen(port, () => {
   logger.info(`Server is running on port ${port}`);
