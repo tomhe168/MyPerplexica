@@ -519,7 +519,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
   }
 
   private detectImageIntent(message: string): boolean {
-    const imageKeywords = ['请把回答转为图片', '生成图片', '转成图片', '生成一张图'];
+    const imageKeywords = ['请把回答转为图片', '生成图片', '转成图片', '生成一张图','生成图像', '生成一张图片'];
     return imageKeywords.some(keyword => message.toLowerCase().includes(keyword));
   }
 

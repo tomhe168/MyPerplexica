@@ -1,10 +1,9 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { createCanvas, registerFont } from 'canvas'; // 添加 registerFont
+import { createCanvas, registerFont } from 'canvas';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import logger from './logger';
 
 const app = express();
@@ -13,7 +12,8 @@ const PORT = process.env.PORT || 3001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.resolve();
 
-
+// 注册中文字体
+registerFont(path.join(__dirname, 'fonts', 'NotoSansSC-VariableFont_wght.ttf'), { family: 'Noto Sans SC' });
 
 app.use(cors());
 app.use(express.json());
@@ -36,41 +36,51 @@ app.get('/mcp-info', (req: Request, res: Response) => {
 app.post('/text-to-image', async (req: Request, res: Response) => {
   try {
     const { text, style = 'default' } = req.body;
+    const MAX_LENGTH = 1000;
 
     if (!text) {
       return res.status(400).json({ error_code: 400, error_message: '文本内容不能为空' });
     }
 
+    // 截断文本
+    const displayText = text.length > MAX_LENGTH 
+      ? text.substring(0, MAX_LENGTH) + '...'
+      : text;
+
+    // logger.info('Processing text to image:', { 
+    //   originalLength: text.length,
+    //   truncatedLength: displayText.length,
+    //   text: displayText 
+    // });
+
     // 创建画布
-    const canvas = createCanvas(800, 400);
+    const canvas = createCanvas(800, 1200);
     const ctx = canvas.getContext('2d');
 
     // 设置背景
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 800, 400);
+    ctx.fillRect(0, 0, 800, 1200);
 
-
+    // 设置字体
     ctx.fillStyle = '#000000';
+    ctx.font = '24px "Noto Sans SC"';
 
     // 文本换行处理
-    const words = text.split(' ');
-    let line = '';
+    let x = 25;
     let y = 50;
     const lineHeight = 30;
     const maxWidth = 750;
 
-    for (let word of words) {
-      const testLine = line + word + ' ';
-      const metrics = ctx.measureText(testLine);
-      if (metrics.width > maxWidth) {
-        ctx.fillText(line, 25, y);
-        line = word + ' ';
+    // 逐字符处理
+    for (let char of displayText) {
+      const metrics = ctx.measureText(char);
+      if (x + metrics.width > maxWidth) {
+        x = 25;
         y += lineHeight;
-      } else {
-        line = testLine;
       }
+      ctx.fillText(char, x, y);
+      x += metrics.width;
     }
-    ctx.fillText(line, 25, y);
 
     // 生成唯一文件名
     const fileName = `image_${Date.now()}.png`;
