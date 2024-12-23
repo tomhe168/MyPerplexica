@@ -11,6 +11,7 @@ import {
   StopCircle,
   Layers3,
   Plus,
+  Download,
 } from 'lucide-react';
 import Markdown from 'markdown-to-jsx';
 import Copy from './MessageActions/Copy';
@@ -19,6 +20,12 @@ import MessageSources from './MessageSources';
 import SearchImages from './SearchImages';
 import SearchVideos from './SearchVideos';
 import { useSpeech } from 'react-text-to-speech';
+import logger from '@/lib/logger';
+
+interface MessageContent {
+  type: 'text' | 'image';
+  content: string;
+}
 
 const MessageBox = ({
   message,
@@ -39,31 +46,79 @@ const MessageBox = ({
   rewrite: (messageId: string) => void;
   sendMessage: (message: string) => void;
 }) => {
-  const [parsedMessage, setParsedMessage] = useState(message.content);
-  const [speechMessage, setSpeechMessage] = useState(message.content);
+  // 组件初始化时记录消息状态
+  logger.info('MessageBox initialized:', {
+    messageId: message.messageId,
+    role: message.role,
+    content : message.content,
+    messageIndex
+  });
+
+  const [parsedMessage, setParsedMessage] = useState(
+    message.content
+  );
+  const [speechMessage, setSpeechMessage] = useState(
+    message.content
+  );
 
   useEffect(() => {
-    const regex = /\[(\d+)\]/g;
+    // 记录消息内容变化
+    logger.info('Message content changed:', {
+      messageId: message.messageId,
+      content: message.content,
+      textContent: message.content
+    });
 
-    if (
-      message.role === 'assistant' &&
-      message?.sources &&
-      message.sources.length > 0
-    ) {
-      return setParsedMessage(
-        message.content.replace(
-          regex,
-          (_, number) =>
-            `<a href="${message.sources?.[number - 1]?.metadata?.url}" target="_blank" className="bg-light-secondary dark:bg-dark-secondary px-1 rounded ml-1 no-underline text-xs text-black/70 dark:text-white/70 relative">${number}</a>`,
-        ),
-      );
-    }
+    const textContent = message.content;
+    setParsedMessage(textContent);
+    setSpeechMessage(textContent);
 
-    setSpeechMessage(message.content.replace(regex, ''));
-    setParsedMessage(message.content);
-  }, [message.content, message.sources, message.role]);
+   
+  }, [message]);
 
   const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
+
+  const renderContent = (content: MessageContent) => {
+    logger.info('Rendering content:', {
+      type: content.type,
+      content: content.content,
+      contentLength: content.content?.length,
+      isContentEmpty: !content.content,
+      messageId: message.messageId,
+      messageRole: message.role
+    });
+
+    switch (content.type) {
+      case 'image':
+        return (
+          <div className="flex flex-col gap-2">
+            <img 
+              src={content.content}
+              alt="Generated Image" 
+              className="rounded-lg max-w-full"
+            />
+            <a 
+              href={content.content}
+              download
+              className="flex items-center gap-2 text-sm text-black/70 dark:text-white/70 hover:text-[#24A0ED] transition-colors"
+            >
+              <Download size={16} />
+              下载图片
+            </a>
+          </div>
+        );
+      default:
+        return (
+          <Markdown className={cn(
+            'prose dark:prose-invert max-w-none break-words',
+            'prose-h1:mb-3 prose-h2:mb-2 prose-h2:mt-6 prose-h2:font-[800] prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:font-[600] dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 font-[400]',
+            'max-w-none break-words text-black dark:text-white',
+          )}>
+            {content.content}
+          </Markdown>
+        );
+    }
+  };
 
   return (
     <div>
@@ -105,14 +160,18 @@ const MessageBox = ({
                   Answer
                 </h3>
               </div>
-              <Markdown
-                className={cn(
-                  'prose prose-h1:mb-3 prose-h2:mb-2 prose-h2:mt-6 prose-h2:font-[800] prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:font-[600] dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 font-[400]',
-                  'max-w-none break-words text-black dark:text-white',
-                )}
-              >
-                {parsedMessage}
-              </Markdown>
+              <div className="flex flex-col space-y-2">
+                <div>
+                  {renderContent({
+                    type: 'text',
+                    content: parsedMessage
+                  })}
+                  {message.imageUrl && renderContent({
+                    type: 'image',
+                    content: message.imageUrl
+                  })}
+                </div>
+              </div>
               {loading && isLast ? null : (
                 <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-4 -mx-2">
                   <div className="flex flex-row items-center space-x-1">
@@ -122,7 +181,10 @@ const MessageBox = ({
                     <Rewrite rewrite={rewrite} messageId={message.messageId} />
                   </div>
                   <div className="flex flex-row items-center space-x-1">
-                    <Copy initialMessage={message.content} message={message} />
+                    <Copy 
+                      initialMessage={message.content}
+                      message={message}
+                    />
                     <button
                       onClick={() => {
                         if (speechStatus === 'started') {
@@ -184,14 +246,18 @@ const MessageBox = ({
             </div>
           </div>
           <div className="lg:sticky lg:top-20 flex flex-col items-center space-y-3 w-full lg:w-3/12 z-30 h-full pb-4">
-            <SearchImages
-              query={history[messageIndex - 1].content}
-              chatHistory={history.slice(0, messageIndex - 1)}
-            />
-            <SearchVideos
-              chatHistory={history.slice(0, messageIndex - 1)}
-              query={history[messageIndex - 1].content}
-            />
+            {history[messageIndex - 1]?.content && (
+              <>
+                <SearchImages
+                  query={history[messageIndex - 1].content}
+                  chatHistory={history.slice(0, messageIndex - 1)}
+                />
+                <SearchVideos
+                  chatHistory={history.slice(0, messageIndex - 1)}
+                  query={history[messageIndex - 1].content}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

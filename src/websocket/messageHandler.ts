@@ -93,6 +93,7 @@ const handleEmitterEvents = (
 ) => {
   let recievedMessage = '';
   let sources = [];
+  let imageUrl = null;
 
   emitter.on('data', (data) => {
     const parsedData = JSON.parse(data);
@@ -114,6 +115,15 @@ const handleEmitterEvents = (
         }),
       );
       sources = parsedData.data;
+    } else if (parsedData.type === 'image') {
+      ws.send(
+        JSON.stringify({
+          type: 'image',
+          data: parsedData.data,
+          messageId: messageId,
+        }),
+      );
+      imageUrl = parsedData.data;
     }
   });
   emitter.on('end', () => {
@@ -128,6 +138,7 @@ const handleEmitterEvents = (
         metadata: JSON.stringify({
           createdAt: new Date(),
           ...(sources && sources.length > 0 && { sources }),
+          ...(imageUrl && { imageUrl }),
         }),
       })
       .execute();

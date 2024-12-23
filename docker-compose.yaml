@@ -20,6 +20,7 @@ services:
     image: itzcrazykns1337/perplexica-backend:main
     environment:
       - SEARXNG_API_URL=http://searxng:8080
+      - MCP_SERVER_URL=http://mcp-server:5000
       - http_proxy=http://192.168.1.3:7890
       - https_proxy=http://192.168.1.3:7890
       - no_proxy=localhost,127.0.0.1
@@ -56,6 +57,23 @@ services:
       - http_proxy=http://192.168.1.3:7890
       - https_proxy=http://192.168.1.3:7890
       - no_proxy=localhost,127.0.0.1
+
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    ports:
+      - 5000:5000
+    environment:
+      - PORT=5000
+      - http_proxy=http://192.168.1.3:7890
+      - https_proxy=http://192.168.1.3:7890
+      - no_proxy=localhost,127.0.0.1
+    volumes:
+      - ./mcp-server/images:/app/images
+    networks:
+      - perplexica-network
+    restart: unless-stopped
 
 networks:
   perplexica-network:

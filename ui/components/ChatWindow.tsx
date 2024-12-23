@@ -19,6 +19,7 @@ export type Message = {
   role: 'user' | 'assistant';
   suggestions?: string[];
   sources?: Document[];
+  imageUrl?: string;
 };
 
 export interface File {
@@ -421,6 +422,21 @@ const ChatWindow = ({ id }: { id?: string }) => {
           ]);
           added = true;
         }
+        setMessageAppeared(true);
+      }
+
+      if (data.type === 'image') {
+        setMessages((prev) =>
+          prev.map((message) => {
+            if (message.messageId === data.messageId) {
+              return { 
+                ...message, 
+                imageUrl: data.data  // 添加图片URL到消息中
+              };
+            }
+            return message;
+          }),
+        );
         setMessageAppeared(true);
       }
 

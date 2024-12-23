@@ -12,40 +12,55 @@ export const loadOpenAIChatModels = async () => {
       'gpt-3.5-turbo': {
         displayName: 'GPT-3.5 Turbo',
         model: new ChatOpenAI({
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
           openAIApiKey,
-          modelName: 'gpt-3.5-turbo',
+          modelName: 'deepseek-chat',
           temperature: 0.7,
         }),
       },
       'gpt-4': {
         displayName: 'GPT-4',
         model: new ChatOpenAI({
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
           openAIApiKey,
-          modelName: 'gpt-4',
+          modelName: 'deepseek-chat',
           temperature: 0.7,
         }),
       },
       'gpt-4-turbo': {
         displayName: 'GPT-4 turbo',
         model: new ChatOpenAI({
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
           openAIApiKey,
-          modelName: 'gpt-4-turbo',
+          modelName: 'deepseek-chat',
           temperature: 0.7,
         }),
       },
       'gpt-4o': {
         displayName: 'GPT-4 omni',
         model: new ChatOpenAI({
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
           openAIApiKey,
-          modelName: 'gpt-4o',
+          modelName: 'deepseek-chat',
           temperature: 0.7,
         }),
       },
       'gpt-4o-mini': {
         displayName: 'GPT-4 omni mini',
         model: new ChatOpenAI({
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
           openAIApiKey,
-          modelName: 'gpt-4o-mini',
+          modelName: 'deepseek-chat',
           temperature: 0.7,
         }),
       },
@@ -69,14 +84,20 @@ export const loadOpenAIEmbeddingsModels = async () => {
         displayName: 'Text Embedding 3 Small',
         model: new OpenAIEmbeddings({
           openAIApiKey,
-          modelName: 'text-embedding-3-small',
+          modelName: 'deepseek-chat',
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
         }),
       },
       'text-embedding-3-large': {
         displayName: 'Text Embedding 3 Large',
         model: new OpenAIEmbeddings({
           openAIApiKey,
-          modelName: 'text-embedding-3-large',
+          modelName: 'deepseek-chat',
+          configuration: {
+            baseURL: "https://api.deepseek.com",
+          },
         }),
       },
     };

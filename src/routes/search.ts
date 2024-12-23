@@ -11,6 +11,7 @@ import {
 import { searchHandlers } from '../websocket/messageHandler';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { MetaSearchAgentType } from '../search/metaSearchAgent';
+import { TextToImageClient } from '../lib/mcp/client';
 
 const router = express.Router();
 const CACHE_TTL = 300; // 5分钟缓存
@@ -34,6 +35,24 @@ interface ChatRequestBody {
   embeddingModel?: embeddingModel;
   query: string;
   history: Array<[string, string]>;
+}
+
+const mcpClient = new TextToImageClient({
+  serverUrl: process.env.MCP_SERVER_URL || 'http://localhost:5000'
+});
+
+// 添加结果类型定义
+interface SearchResult {
+  message: string;
+  sources: any[];
+  imageUrl?: string;
+  metadata?: {
+    format: string;
+    width: number;
+    height: number;
+    style: string;
+    created_at: string;
+  };
 }
 
 router.post('/', async (req, res) => {
@@ -185,7 +204,18 @@ router.post('/', async (req, res) => {
     });
 
     emitter.on('end', async () => {
-      const result = { message, sources };
+      const result: SearchResult = { message, sources };
+      
+      if (body.query.toLowerCase().includes('转为图片') || 
+          body.query.toLowerCase().includes('生成图片')) {
+        try {
+          const imageResult = await mcpClient.convertTextToImage(message);
+          result.imageUrl = imageResult.imageUrl;
+          result.metadata = imageResult.metadata;
+        } catch (error) {
+          logger.error('Image generation failed:', error);
+        }
+      }
       
       // 使用 RedisCache 类存储结果
       await redisCache.set(body.query, result, cacheOptions);

@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+      "module": "ESNext",         // 使用 ES Module
+      "target": "ESNext",         // 输出兼容最新 JS 版本
+      "outDir": "dist",           // 输出目录
+      "rootDir": "./",            // 源文件根目录
+      "esModuleInterop": true,    // 支持 CommonJS 模块
+      "strict": true,             // 启用严格模式
+      "moduleResolution": "node"  // Node.js 模块解析策略
+    },
+    "include": ["server.ts", "src/**/*.ts"], // 包含编译的文件
+    "exclude": ["node_modules"]              // 排除的目录
+  }
+  

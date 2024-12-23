@@ -25,6 +25,9 @@ import formatChatHistoryAsString from '../utils/formatHistory';
 import eventEmitter from 'events';
 import { StreamEvent } from '@langchain/core/tracers/log_stream';
 import { IterableReadableStream } from '@langchain/core/utils/stream';
+import logger from '../utils/logger';
+import fetch from 'node-fetch';
+
 
 export interface MetaSearchAgentType {
   searchAndAnswer: (
@@ -128,6 +131,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           await Promise.all(
             docGroups.map(async (doc) => {
+              logger.info({
+                "docGroups": docGroups,
+              });
               const res = await llm.invoke(`
             You are a web search summarizer, tasked with summarizing a piece of text retrieved from a web search. Your job is to summarize the 
             text into a detailed, 2-4 paragraph explanation that captures the main ideas and provides a comprehensive answer to the query.
@@ -188,6 +194,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
             Make sure to answer the query in the summary.
           `);
+          logger.info({
+            'docGroups_res': res,
+          });
 
               const document = new Document({
                 pageContent: res.content as string,
@@ -458,6 +467,62 @@ class MetaSearchAgent implements MetaSearchAgentType {
     }
   }
 
+  private async handleImageGeneration(text: string): Promise<string | null> {
+    try {
+      const mcpUrl = 'http://192.168.1.9:5000';
+      logger.info('Attempting to generate image:', { text, mcpUrl });
+
+      const imageOptions = {
+        text,
+        options: {
+          width: 800,
+          height: 400,
+          backgroundColor: '#ffffff',
+          textColor: '#000000',
+          fontSize: 24,
+          fontFamily: 'Arial'
+        }
+      };
+
+      const response = await fetch(`${mcpUrl}/text-to-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(imageOptions)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('MCP server response error:', {
+          status: response.status,
+          errorText,
+          mcpUrl
+        });
+        throw new Error(`MCP server error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      logger.info('Image generated successfully:', {
+        imageUrl: data.imageUrl,
+        text: text.substring(0, 100) + '...' // 只记录前100个字符
+      });
+      
+      return data.imageUrl;
+    } catch (error) {
+      logger.error('Image generation failed:', {
+        error: error.message,
+        stack: error.stack
+      });
+      return null;
+    }
+  }
+
+  private detectImageIntent(message: string): boolean {
+    const imageKeywords = ['请把回答转为图片', '生成图片', '转成图片', '生成一张图'];
+    return imageKeywords.some(keyword => message.toLowerCase().includes(keyword));
+  }
+
   async searchAndAnswer(
     message: string,
     history: BaseMessage[],
@@ -466,7 +531,17 @@ class MetaSearchAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
   ) {
+    logger.info({
+      message: 'searchAndAnswer',
+      history,
+      llm,
+      embeddings,
+      optimizationMode,
+      fileIds,
+    });
+
     const emitter = new eventEmitter();
+    const needsImage = this.detectImageIntent(message);
 
     const answeringChain = await this.createAnsweringChain(
       llm,
@@ -485,7 +560,51 @@ class MetaSearchAgent implements MetaSearchAgentType {
       },
     );
 
-    this.handleStream(stream, emitter);
+    let fullResponse = '';
+    
+    const handleStreamWithImage = async (
+      stream: IterableReadableStream<StreamEvent>,
+      emitter: eventEmitter,
+    ) => {
+      for await (const event of stream) {
+        if (
+          event.event === 'on_chain_end' &&
+          event.name === 'FinalSourceRetriever'
+        ) {
+          emitter.emit(
+            'data',
+            JSON.stringify({ type: 'sources', data: event.data.output }),
+          );
+        }
+        if (
+          event.event === 'on_chain_stream' &&
+          event.name === 'FinalResponseGenerator'
+        ) {
+          fullResponse += event.data.chunk;
+          emitter.emit(
+            'data',
+            JSON.stringify({ type: 'response', data: event.data.chunk }),
+          );
+        }
+        if (
+          event.event === 'on_chain_end' &&
+          event.name === 'FinalResponseGenerator'
+        ) {
+          if (needsImage) {
+            const imageUrl = await this.handleImageGeneration(fullResponse);
+            if (imageUrl) {
+              emitter.emit(
+                'data',
+                JSON.stringify({ type: 'image', data: imageUrl }),
+              );
+            }
+          }
+          emitter.emit('end');
+        }
+      }
+    };
+
+    handleStreamWithImage(stream, emitter);
 
     return emitter;
   }
